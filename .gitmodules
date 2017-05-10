@@ -1,0 +1,6 @@
+[submodule "shut"]
+	path = shut
+	url = https://github.com/wget/shut.git
+[submodule "argsparse"]
+	path = argsparse
+	url = https://github.com/Anvil/bash-argsparse.git
