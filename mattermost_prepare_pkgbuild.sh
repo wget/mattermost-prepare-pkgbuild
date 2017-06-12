@@ -19,24 +19,24 @@ require_deps 'sed' 'curl' 'po2i18n' || exit 1
 #-------------------------------------------------------------------------------
 function check_value_of_source_folder() {
     local dir=$1
-    local msg=()
+    local missing=()
     if [[ ! -d "$dir" ]]; then
         die "'$dir' is not a valid Mattermost directory. Aborted."
     fi
 
     if [[ ! -d "$dir/i18n" ]]; then
-        msg+=($dir/i18n)
+        missing+=($dir/i18n)
     fi
     
     if [[ ! -d "$dir/webapp" ]]; then
-        msg+=($dir/webapp)
+        missing+=($dir/webapp)
     fi
 
-    if (( ${#msg} != 0 )); then
-        if (( ${#msg} == 1 )); then
-            die "'${msg[0]}' is not present in your mattermost directory. Aborted."
+    if (( ${#missing} != 0 )); then
+        if (( ${#missing} == 1 )); then
+            die "'${missing[0]}' is not present in your mattermost directory. Aborted."
         else
-            die "'${msg[0]}' and '${msg[1]}' are not present in your mattermost directory. Aborted."
+            die "'${missing[0]}' and '${missing[1]}' are not present in your mattermost directory. Aborted."
         fi
     fi
 }
@@ -59,9 +59,9 @@ function get_valid_pull_requests() {
     local found=()
     local msg=""
 
-    for pr in "${prs[@]}"; do
-        echo "DEBUG '$pr'"
+    info "Checking pull requests validity..."
 
+    for pr in "${prs[@]}"; do
         if ! is_number_positive "$pr"; then
             invalid+=($pr)
             continue
@@ -80,14 +80,14 @@ function get_valid_pull_requests() {
     elif ((${#invalid[@]} >= 2)); then
         msg='The PR codes '
         if ((${#invalid[@]} == 2)); then
-            msg+="'${invalid[0]}' and '${invalid[1]}'"
+            msg="${msg}'${invalid[0]}' and '${invalid[1]}'"
         else
             for ((i = 0; i < ${#invalid} - 2; i++)); do
-                msg+="'${invalid[i]}', "
+                msg="${msg}'${invalid[i]}', "
             done
-            msg+="'${invalid[$i]}' and "
+            msg="${msg}'${invalid[$i]}' and "
             ((i++))
-            msg+="'${invalid[$i]}' "
+            msg="${msg}'${invalid[$i]}' "
         fi
         msg+=" are invalid."
     fi
@@ -114,6 +114,8 @@ function get_valid_langs() {
     local invalid=()
     local found=()
     local msg=""
+
+    info "Checking langs validity..."
 
     for lang in "${langs[@]}"; do
         if strpos "$(curl -I --silent https://translate.mattermost.com/export/?path=/"$lang")" " 200 OK"; then
@@ -160,7 +162,7 @@ argsparse_set_option_property short:p pull-requests
 # The type char is only for one char, there is no string type.
 # argsparse_set_option_property type:char pull-requests
 
-argsparse_use_option langs "The languages we want to download from the Pootle server in order to test the translation. The languages are specified using their language codes (as available on Pootle) and must be separated with a colon."
+argsparse_use_option langs "The languages we want to download from the Pootle server in order to test the translation. The languages are specified using their language codes (as available on Pootle) and must be separated with a comma."
 argsparse_set_option_property value langs
 argsparse_set_option_property short:l langs
 
@@ -202,20 +204,20 @@ else
 
     # Update templates
     info "Downloading new en template for the web static content..."
-    curl -L https://raw.githubusercontent.com/mattermost/platform/master/webapp/i18n/en.json \
-         -o template_web_static_en.json --progress-bar
+    curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/webapp/i18n/en.json' \
+         -o 'template_web_static_en.json' --progress-bar
     info "Downloading new en template for the platform content..."
-    curl -L https://raw.githubusercontent.com/mattermost/platform/master/i18n/en.json \
-         -o template_platform_en.json --progress-bar
+    curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/i18n/en.json' \
+         -o 'template_platform_en.json' --progress-bar
 
-    for i in $langs; do
-        lang="$i"
+    for ((i = 0; i < ${#langs[@]}; i++)); do
+        lang="${langs[i]}"
         info "Downloading new $lang translations for the web static content..."
-        curl -L "https://translate.mattermost.com/export/?path=/$i/mattermost/web_static.po" \
+        curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/web_static.po" \
              -o web_static.po --progress-bar
 
-        info "Converting $lang web static translations from PO to JSON (might take some time)..."
-        if ! po2i18n -t web_static.json -o new_web_static.json web_static.po; then
+        info "Converting $lang web static translations from PO to JSON..."
+        if ! po2i18n -t template_web_static_en.json -o new_web_static.json web_static.po; then
             warning "Unable to convert $lang web static translations from PO to JSON"
         fi
 
@@ -227,8 +229,8 @@ else
         curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/platform.po" \
              -o platform.po --progress-bar
 
-        info "Converting $lang platform translations from PO to JSON (might take some time)..."
-        if ! po2i18n -t platform.json -o new_platform.json platform.po; then
+        info "Converting $lang platform translations from PO to JSON..."
+        if ! po2i18n -t template_platform_en.json -o new_platform.json platform.po; then
             warning "Unable to convert $lang platform translations from PO to JSON"
         fi
 
