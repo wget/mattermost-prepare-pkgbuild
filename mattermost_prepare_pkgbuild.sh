@@ -156,7 +156,7 @@ argsparse_set_option_property short:d source-folder
 argsparse_set_option_property type:directory source-folder
 argsparse_set_option_property mandatory source-folder
 
-argsparse_use_option pull-requests "The pull request number from the Github page that will be applied on the existing Mattermost sources"
+argsparse_use_option pull-requests "The pull request numbers separated with a comma from the Github page that will be applied on the existing Mattermost sources."
 argsparse_set_option_property value pull-requests
 argsparse_set_option_property short:p pull-requests
 # The type char is only for one char, there is no string type.
@@ -180,7 +180,7 @@ else
     get_valid_pull_requests "$prs"
     prs=("${retval[@]}")
 
-    for i in $prs; do
+    for i in "${prs[@]}"; do
         # If you want to test a pull request, simply suffix the Github link by patch
         # and put it in the source array.
         # e.g. with https://github.com/mattermost/platform/pull/4005
@@ -196,9 +196,6 @@ if ! argsparse_is_option_set "langs"; then
 else
 
     langs=${program_options["langs"]}
-    # This function is actually called two times, the first one by argsparse
-    # and the second one by this call. This is needed as we need the return
-    # value of the function and with argsparse we have no way to get it.
     get_valid_langs "$langs"
     langs=("${retval[@]}")
 
