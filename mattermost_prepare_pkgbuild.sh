@@ -228,6 +228,7 @@ function main() {
                 warning "Unable to convert $lang web static translations from PO to JSON. Skipping..."
                 continue
             fi
+            echo -n '    '
             if ! mv -v new_web_static.json ./webapp/i18n/"$lang".json 2>/dev/null; then
                 warning "Unable to move new_web_static.json to ./webapp/i18n/$lang.json"
             else
@@ -242,6 +243,7 @@ function main() {
                 warning "Unable to convert $lang platform translations from PO to JSON. Skipping..."
                 continue
             fi
+            echo -n '    '
             if ! mv -v new_platform.json ./i18n/"$lang".json 2>/dev/null; then
                 warning "Unable to move new_platform.json to ./i18n/$lang.json"
             else
@@ -256,7 +258,7 @@ function main() {
         get_date
         msg="Test translation on $retval"
         info "Committing '$msg'..."
-        git commit -m "$msg"
+        git commit -m "$msg" >/dev/null
     else
         info "No file to commit. The repo can be reset to the previous state."
     fi
