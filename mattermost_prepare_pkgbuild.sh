@@ -149,106 +149,117 @@ function get_valid_langs() {
     return 0
 }
 
-argsparse_use_option source-folder "The folder containing the Mattermost sources"
-# The following lines can be set on the same line as the previous line.
-argsparse_set_option_property value source-folder
-argsparse_set_option_property short:d source-folder
-argsparse_set_option_property type:directory source-folder
-argsparse_set_option_property mandatory source-folder
+function main() {
 
-argsparse_use_option pull-requests "The pull request numbers separated with a comma from the Github page that will be applied on the existing Mattermost sources."
-argsparse_set_option_property value pull-requests
-argsparse_set_option_property short:p pull-requests
-# The type char is only for one char, there is no string type.
-# argsparse_set_option_property type:char pull-requests
+    local dest
+    local prs
+    local langs
+    local lang
+    local to_commit
+    local msg
 
-argsparse_use_option langs "The languages we want to download from the Pootle server in order to test the translation. The languages are specified using their language codes (as available on Pootle) and must be separated with a comma."
-argsparse_set_option_property value langs
-argsparse_set_option_property short:l langs
+    argsparse_use_option source-folder "The folder containing the Mattermost sources"
+    # The following lines can be set on the same line as the previous line.
+    argsparse_set_option_property value source-folder
+    argsparse_set_option_property short:d source-folder
+    argsparse_set_option_property type:directory source-folder
+    argsparse_set_option_property mandatory source-folder
 
-argsparse_parse_options "$@"
+    argsparse_use_option pull-requests "The pull request numbers separated with a comma from the Github page that will be applied on the existing Mattermost sources."
+    argsparse_set_option_property value pull-requests
+    argsparse_set_option_property short:p pull-requests
+    # The type char is only for one char, there is no string type.
+    # argsparse_set_option_property type:char pull-requests
 
-dest=${program_options["source-folder"]}
-if ! cd "$dest"; then
-    die "Unable to change dir to $dest. Aborted."
-fi
+    argsparse_use_option langs "The languages we want to download from the Pootle server in order to test the translation. The languages are specified using their language codes (as available on Pootle) and must be separated with a comma."
+    argsparse_set_option_property value langs
+    argsparse_set_option_property short:l langs
 
-if ! argsparse_is_option_set "pull-requests"; then
-    warning "No pull request specified. Skipping..."
-else
-    prs=${program_options["pull-requests"]} 
-    get_valid_pull_requests "$prs"
-    prs=("${retval[@]}")
+    argsparse_parse_options "$@"
 
-    for i in "${prs[@]}"; do
-        # If you want to test a pull request, simply suffix the Github link by patch
-        # and put it in the source array.
-        # e.g. with https://github.com/mattermost/platform/pull/4005
-        # simply use the following link:
-        # https://github.com/mattermost/platform/pull/4005.patch
-        curl -LO "https://github.com/mattermost/platform/pull/$i.patch"
-        patch -Np1 -i "$i.patch"
-    done
-fi
+    dest=${program_options["source-folder"]}
+    if ! cd "$dest"; then
+        die "Unable to change dir to $dest. Aborted."
+    fi
 
-if ! argsparse_is_option_set "langs"; then
-    warning "No language specified. Skipping..."
-else
+    if ! argsparse_is_option_set "pull-requests"; then
+        warning "No pull request specified. Skipping..."
+    else
+        prs=${program_options["pull-requests"]}
+        get_valid_pull_requests "$prs"
+        prs=("${retval[@]}")
 
-    langs=${program_options["langs"]}
-    get_valid_langs "$langs"
-    langs=("${retval[@]}")
+        for i in "${prs[@]}"; do
+            # If you want to test a pull request, simply suffix the Github link by patch
+            # and put it in the source array.
+            # e.g. with https://github.com/mattermost/platform/pull/4005
+            # simply use the following link:
+            # https://github.com/mattermost/platform/pull/4005.patch
+            curl -LO "https://github.com/mattermost/platform/pull/$i.patch"
+            patch -Np1 -i "$i.patch"
+        done
+    fi
 
-    # Update templates
-    info "Downloading new en template for the web static content..."
-    curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/webapp/i18n/en.json' \
-         -o 'template_web_static_en.json' --progress-bar
-    info "Downloading new en template for the platform content..."
-    curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/i18n/en.json' \
-         -o 'template_platform_en.json' --progress-bar
+    if ! argsparse_is_option_set "langs"; then
+        warning "No language specified. Skipping..."
+    else
 
-    for ((i = 0; i < ${#langs[@]}; i++)); do
+        langs=${program_options["langs"]}
+        get_valid_langs "$langs"
+        langs=("${retval[@]}")
 
-        lang="${langs[i]}"
+        # Update templates
+        info "Downloading new en template for the web static content..."
+        curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/webapp/i18n/en.json' \
+             -o 'template_web_static_en.json' --progress-bar
+        info "Downloading new en template for the platform content..."
+        curl -L 'https://raw.githubusercontent.com/mattermost/platform/master/i18n/en.json' \
+             -o 'template_platform_en.json' --progress-bar
 
-        info "Downloading new $lang translations for the web static content..."
-        curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/web_static.po" \
-             -o web_static.po --progress-bar
-        info "Converting $lang web static translations from PO to JSON..."
-        if ! po2i18n -t template_web_static_en.json -o new_web_static.json web_static.po; then
-            warning "Unable to convert $lang web static translations from PO to JSON. Skipping..."
-            continue
-        fi
-        if ! mv -v new_web_static.json ./webapp/i18n/"$lang".json 2>/dev/null; then
-            warning "Unable to move new_web_static.json to ./webapp/i18n/$lang.json"
-        else
-            to_commit+=("./webapp/i18n/$lang.json")
-        fi
+        for ((i = 0; i < ${#langs[@]}; i++)); do
 
-        info "Downloading new $lang translations for the platform content..."
-        curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/platform.po" \
-             -o platform.po --progress-bar
-        info "Converting $lang platform translations from PO to JSON..."
-        if ! po2i18n -t template_platform_en.json -o new_platform.json platform.po; then
-            warning "Unable to convert $lang platform translations from PO to JSON. Skipping..."
-            continue
-        fi
-        if ! mv -v new_platform.json ./i18n/"$lang".json 2>/dev/null; then
-            warning "Unable to move new_platform.json to ./i18n/$lang.json"
-        else
-            to_commit+=("./i18n/$lang.json")
-        fi
-    done
-fi
+            lang="${langs[i]}"
 
-if (( ${#to_commit[@]} > 0 )); then
-    info "Adding ${to_commit[*]}..."
-    git add "${to_commit[@]}"
-    get_date
-    msg="Test translation on $retval"
-    info "Committing '$msg'..."
-    git commit -m "$msg"
-else
-    info "No file to commit. The repo can be reset to the previous state."
-fi
+            info "Downloading new $lang translations for the web static content..."
+            curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/web_static.po" \
+                 -o web_static.po --progress-bar
+            info "Converting $lang web static translations from PO to JSON..."
+            if ! po2i18n -t template_web_static_en.json -o new_web_static.json web_static.po; then
+                warning "Unable to convert $lang web static translations from PO to JSON. Skipping..."
+                continue
+            fi
+            if ! mv -v new_web_static.json ./webapp/i18n/"$lang".json 2>/dev/null; then
+                warning "Unable to move new_web_static.json to ./webapp/i18n/$lang.json"
+            else
+                to_commit+=("./webapp/i18n/$lang.json")
+            fi
 
+            info "Downloading new $lang translations for the platform content..."
+            curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/platform.po" \
+                 -o platform.po --progress-bar
+            info "Converting $lang platform translations from PO to JSON..."
+            if ! po2i18n -t template_platform_en.json -o new_platform.json platform.po; then
+                warning "Unable to convert $lang platform translations from PO to JSON. Skipping..."
+                continue
+            fi
+            if ! mv -v new_platform.json ./i18n/"$lang".json 2>/dev/null; then
+                warning "Unable to move new_platform.json to ./i18n/$lang.json"
+            else
+                to_commit+=("./i18n/$lang.json")
+            fi
+        done
+    fi
+
+    if (( ${#to_commit[@]} > 0 )); then
+        info "Adding ${to_commit[*]}..."
+        git add "${to_commit[@]}"
+        get_date
+        msg="Test translation on $retval"
+        info "Committing '$msg'..."
+        git commit -m "$msg"
+    else
+        info "No file to commit. The repo can be reset to the previous state."
+    fi
+}
+
+main "$@"
