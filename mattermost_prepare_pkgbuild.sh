@@ -7,7 +7,7 @@
 set_colors
 set_effects
 
-require_deps 'sed' 'curl' 'po2i18n' || exit 1
+require_deps 'sed' 'curl' 'po2i18n' 'git' || exit 1
 
 #-------------------------------------------------------------------------------
 ## @fn check_value_of_source_folder()
@@ -20,6 +20,11 @@ require_deps 'sed' 'curl' 'po2i18n' || exit 1
 function check_value_of_source_folder() {
     local dir=$1
     local missing=()
+    local gitReturn
+    local msg=()
+    local dieMsg
+    local solution=()
+    local solutionMsg
     if [[ ! -d "$dir" ]]; then
         die "'$dir' is not a valid Mattermost directory. Aborted."
     fi
@@ -38,6 +43,46 @@ function check_value_of_source_folder() {
         else
             die "'${missing[0]}' and '${missing[1]}' are not present in your mattermost directory. Aborted."
         fi
+    fi
+
+    # src.: https://stackoverflow.com/a/5139672
+    gitReturn=$(git diff --exit-code)
+    if [[ -n "$gitReturn" ]]; then
+        msg+=("local unstaged changes")
+        solution+=("git reset --hard HEAD")
+    fi
+
+    gitReturn=$(git diff --cached --exit-code)
+    if [[ -n "$gitReturn" ]]; then
+        msg+=("staged but not committed changes")
+        solution+=("git reset --hard HEAD")
+    fi
+
+    gitReturn=$(git ls-files --other --exclude-standard --directory)
+    if [[ -n "$gitReturn" ]]; then
+        msg+=("untracked files in your working tree")
+        solution+=("git clean -fd")
+    fi
+
+    if (( ${#msg[@]} > 0 )); then
+        if (( ${#msg[@]} == 1 )); then
+            dieMsg="${msg[0]}"
+        elif (( ${#msg[@]} == 2 )); then
+            dieMsg="${msg[0]} and ${msg[1]}"
+        else
+            dieMsg="${msg[0]}, ${msg[1]} and ${msg[2]}"
+        fi
+
+        if (( ${#solution[@]} == 1 )); then
+            solutionMsg="'${solution[0]}'"
+        elif (( ${#solution[@]} == 2 )); then
+            solutionMsg="'${solution[0]}' and '${solution[1]}' respectively"
+        else
+            solutionMsg="'${solution[0]}', '${solution[1]}' and '${solution[2]}' respectively"
+        fi
+
+        die "Your Mattermost git directory is not clean. Please remove $dieMsg." \
+            "You can use $solutionMsg to achieve this. Aborted."
     fi
 }
 
@@ -178,6 +223,8 @@ else
 
         if ! mv -v new_web_static.json ./webapp/i18n/"$lang".json 2>/dev/null; then
             warning "Unable to move new_web_static.json to ./webapp/i18n/$lang.json"
+        else
+            to_commit+=("./webapp/i18n/$lang.json")
         fi
 
         info "Downloading new $lang translations for the platform content..."
@@ -191,6 +238,20 @@ else
 
         if ! mv -v new_platform.json ./i18n/"$lang".json 2>/dev/null; then
             warning "Unable to move new_platform.json to ./i18n/$lang.json"
+        else
+            to_commit+=("./i18n/$lang.json")
         fi
     done
 fi
+
+if (( ${#to_commit[@]} > 0 )); then
+    info "Adding ${to_commit[*]}..."
+    git add "${to_commit[@]}"
+    get_date
+    msg="Test translation on $retval"
+    info "Committing '$msg'..."
+    git commit -m "$msg"
+else
+    info "No file to commit. The repo can be reset to the previous state."
+fi
+
