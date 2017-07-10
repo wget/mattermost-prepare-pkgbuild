@@ -208,16 +208,17 @@ else
          -o 'template_platform_en.json' --progress-bar
 
     for ((i = 0; i < ${#langs[@]}; i++)); do
+
         lang="${langs[i]}"
+
         info "Downloading new $lang translations for the web static content..."
         curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/web_static.po" \
              -o web_static.po --progress-bar
-
         info "Converting $lang web static translations from PO to JSON..."
         if ! po2i18n -t template_web_static_en.json -o new_web_static.json web_static.po; then
-            warning "Unable to convert $lang web static translations from PO to JSON"
+            warning "Unable to convert $lang web static translations from PO to JSON. Skipping..."
+            continue
         fi
-
         if ! mv -v new_web_static.json ./webapp/i18n/"$lang".json 2>/dev/null; then
             warning "Unable to move new_web_static.json to ./webapp/i18n/$lang.json"
         else
@@ -227,12 +228,11 @@ else
         info "Downloading new $lang translations for the platform content..."
         curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/platform.po" \
              -o platform.po --progress-bar
-
         info "Converting $lang platform translations from PO to JSON..."
         if ! po2i18n -t template_platform_en.json -o new_platform.json platform.po; then
-            warning "Unable to convert $lang platform translations from PO to JSON"
+            warning "Unable to convert $lang platform translations from PO to JSON. Skipping..."
+            continue
         fi
-
         if ! mv -v new_platform.json ./i18n/"$lang".json 2>/dev/null; then
             warning "Unable to move new_platform.json to ./i18n/$lang.json"
         else
