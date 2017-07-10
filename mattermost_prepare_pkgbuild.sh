@@ -59,48 +59,24 @@ function get_valid_pull_requests() {
     local found=()
     local msg=""
 
-    info "Checking pull requests validity..."
 
     for pr in "${prs[@]}"; do
-        if ! is_number_positive "$pr"; then
-            invalid+=($pr)
-            continue
-        fi
-
-        if strpos "$(curl -I --silent https://github.com/mattermost/platform/pull/"$pr")" " 200 OK"; then
+        info "Checking validity of pull request '$pr'..."
+        if is_number_positive "$pr" && \
+           strpos "$(curl -I --silent https://github.com/mattermost/platform/pull/"$pr")" " 200 OK"; then
             found+=($pr)
             continue
         fi
 
-        invalid+=($pr)
+        warning "The PR code '${invalid[0]}' is invalid."
     done
 
-    if ((${#invalid[@]} == 1)); then
-        msg="The PR code '${invalid[0]}' is invalid."
-    elif ((${#invalid[@]} >= 2)); then
-        msg='The PR codes '
-        if ((${#invalid[@]} == 2)); then
-            msg="${msg}'${invalid[0]}' and '${invalid[1]}'"
-        else
-            for ((i = 0; i < ${#invalid} - 2; i++)); do
-                msg="${msg}'${invalid[i]}', "
-            done
-            msg="${msg}'${invalid[$i]}' and "
-            ((i++))
-            msg="${msg}'${invalid[$i]}' "
-        fi
-        msg+=" are invalid."
-    fi
-
-    if [[ -n "$msg" ]]; then
-        warning "$msg"
-    fi
     retval=("${found[@]}")
     return 0
 }
 
 #-------------------------------------------------------------------------------
-## @fn check_value_of_langs()
+## @fn get_valid_langs()
 ## @details Checks the validity of the langs argument (not called by argsparse).
 ## @param $langs The string passed to the program argument.
 ## @return In $retval, valid language codes.
@@ -115,36 +91,15 @@ function get_valid_langs() {
     local found=()
     local msg=""
 
-    info "Checking langs validity..."
-
     for lang in "${langs[@]}"; do
+        info "Checking validity of language code '$lang'..."
         if strpos "$(curl -I --silent https://translate.mattermost.com/export/?path=/"$lang")" " 200 OK"; then
             found+=($lang)
             continue
         fi
-        invalid+=($lang)
+        warning "The language code '$lang' is invalid..."
     done
 
-    if ((${#invalid[@]} == 1)); then
-        msg="The language code '${invalid[0]}' is invalid."
-    elif ((${#invalid[@]} >= 2)); then
-        msg='The language codes '
-        if ((${#invalid[@]} == 2)); then
-            msg+="'${invalid[0]}' and '${invalid[1]}'"
-        else
-            for ((i = 0; i < ${#invalid} - 2; i++)); do
-                msg+="'${invalid[i]}', "
-            done
-            msg+="'${invalid[$i]}' and "
-            ((i++))
-            msg+="'${invalid[$i]}' "
-        fi
-        msg+=" are invalid."
-    fi
-
-    if [[ -n "$msg" ]]; then
-        warning "$msg"
-    fi
     retval=("${found[@]}")
     return 0
 }
