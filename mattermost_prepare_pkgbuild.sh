@@ -149,7 +149,7 @@ function get_valid_langs() {
             found+=($lang)
             continue
         fi
-        warning "The language code '$lang' is invalid..."
+        warning "The language code '$lang' is invalid. Skipped."
     done
 
     retval=("${found[@]}")
