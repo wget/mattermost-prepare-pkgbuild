@@ -45,6 +45,13 @@ function check_value_of_source_folder() {
         fi
     fi
 
+    # We need to change dir to the Mattermost platform directory otherwise the
+    # following git commands might fail if not run from the Mattermost platform
+    # directory.
+    if ! cd "$dir"; then
+        die "Unable to change dir to '$dir'. Aborted."
+    fi
+
     # src.: https://stackoverflow.com/a/5139672
     gitReturn=$(git diff --exit-code)
     if [[ -n "$gitReturn" ]]; then
