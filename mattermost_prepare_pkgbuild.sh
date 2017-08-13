@@ -53,19 +53,19 @@ function check_value_of_source_folder() {
     fi
 
     # src.: https://stackoverflow.com/a/5139672
-    gitReturn=$(git diff --exit-code)
+    gitReturn="$(git diff --exit-code)"
     if [[ -n "$gitReturn" ]]; then
         msg+=("local unstaged changes")
         solution+=("git reset --hard HEAD")
     fi
 
-    gitReturn=$(git diff --cached --exit-code)
+    gitReturn="$(git diff --cached --exit-code)"
     if [[ -n "$gitReturn" ]]; then
         msg+=("staged but not committed changes")
         solution+=("git reset --hard HEAD")
     fi
 
-    gitReturn=$(git ls-files --other --exclude-standard --directory)
+    gitReturn="$(git ls-files --other --exclude-standard --directory)"
     if [[ -n "$gitReturn" ]]; then
         msg+=("untracked files in your working tree")
         solution+=("git clean -fd")
@@ -186,7 +186,7 @@ function main() {
 
     dest=${program_options["source-folder"]}
     if ! cd "$dest"; then
-        die "Unable to change dir to $dest. Aborted."
+        die "Unable to change dir to '$dest'. Aborted."
     fi
 
     if ! argsparse_is_option_set "pull-requests"; then
@@ -227,10 +227,10 @@ function main() {
 
             lang="${langs[i]}"
 
-            info "Downloading new $lang translations for the web static content..."
+            info "Downloading new translations for '$lang' for the web static content..."
             curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/web_static.po" \
                  -o web_static.po --progress-bar
-            info "Converting $lang web static translations from PO to JSON..."
+            info "Converting web static translations for '$lang' from PO to JSON..."
             if ! po2i18n -t template_web_static_en.json -o new_web_static.json web_static.po; then
                 warning "Unable to convert $lang web static translations from PO to JSON. Skipping..."
                 continue
@@ -242,10 +242,10 @@ function main() {
                 to_commit+=("./webapp/i18n/$lang.json")
             fi
 
-            info "Downloading new $lang translations for the platform content..."
+            info "Downloading new translations for '$lang' for the platform content..."
             curl -L "https://translate.mattermost.com/export/?path=/$lang/mattermost/platform.po" \
                  -o platform.po --progress-bar
-            info "Converting $lang platform translations from PO to JSON..."
+            info "Converting platform translations for '$lang' from PO to JSON..."
             if ! po2i18n -t template_platform_en.json -o new_platform.json platform.po; then
                 warning "Unable to convert $lang platform translations from PO to JSON. Skipping..."
                 continue
